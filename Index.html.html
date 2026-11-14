@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Dominoeffect – Ein Geocache von den 4Lanfis. Interaktiver Koordinaten-Inspektor.">
+    <meta name="author" content="4Lanfis">
+    <title>Dominoeffect – Ein Geocache von den 4Lanfis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Edler dunkler Spieltisch-Filz-Hintergrund */
+            background-color: #0f172a;
+            background-image: 
+                radial-gradient(circle at 50% 35%, rgba(30, 58, 47, 0.85) 0%, rgba(11, 20, 17, 0.98) 100%),
+                repeating-linear-gradient(45deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 2px, transparent 2px, transparent 4px);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .font-mono-code {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Realistischer Elfenbein-Dominostein */
+        .domino-tile {
+            background: linear-gradient(145deg, #fdfbf7 0%, #f3ece0 65%, #e4dac9 100%);
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.75),
+                0 8px 20px -4px rgba(0, 0, 0, 0.5),
+                inset 0 2px 3px rgba(255, 255, 255, 0.95),
+                inset 0 -4px 8px rgba(168, 152, 128, 0.45),
+                0 0 0 1px rgba(214, 203, 185, 0.6);
+            transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        /* Vertiefter Trennschlitz in der Mitte */
+        .domino-divider {
+            background: linear-gradient(180deg, #8c7f6a 0%, #cbbba2 100%);
+            box-shadow: 
+                inset 0 1px 2px rgba(0, 0, 0, 0.65),
+                0 1px 0 rgba(255, 255, 255, 0.85);
+        }
+
+        /* Messing-Spinner (Metallpin in der Mitte) */
+        .domino-spinner {
+            background: radial-gradient(circle at 35% 35%, #fef08a 0%, #d97706 55%, #78350f 100%);
+            box-shadow: 
+                0 2px 4px rgba(0, 0, 0, 0.45),
+                inset 0 1px 2px rgba(255, 255, 255, 0.8),
+                0 0 0 1.5px rgba(146, 64, 14, 0.5);
+        }
+
+        /* Realistischer vertiefter schwarzer Punkt (Pip) */
+        .domino-pip {
+            background: radial-gradient(circle at 35% 35%, #334155 0%, #0f172a 55%, #020617 100%);
+            box-shadow: 
+                inset 0 3px 5px rgba(0, 0, 0, 0.95),
+                inset 0 -1px 2px rgba(255, 255, 255, 0.18),
+                0 1.5px 1px rgba(255, 255, 255, 0.9);
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            cursor: pointer;
+            position: relative;
+        }
+
+        /* Hover & Aktiver Zustand für einen Pip */
+        .domino-pip:hover,
+        .domino-pip.active {
+            transform: scale(1.16);
+            background: radial-gradient(circle at 35% 35%, #38bdf8 0%, #0284c7 45%, #0f172a 95%);
+            box-shadow: 
+                inset 0 2px 4px rgba(0, 0, 0, 0.8),
+                0 0 0 3px rgba(56, 189, 248, 0.45),
+                0 0 16px rgba(56, 189, 248, 0.65);
+            z-index: 20;
+        }
+
+        /* Fadenkreuz-Linie beim aktiven Pip */
+        .crosshair-line {
+            pointer-events: none;
+            transition: all 0.15s ease-out;
+        }
+
+        /* Dezente Glas-Optik für das Koordinaten-Panel */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.82);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.65);
+        }
+    </style>
+</head>
+<body class="text-slate-100 flex flex-col items-center justify-between p-4 sm:p-6 md:p-8 select-none">
+
+    <!-- Kopfbereich mit Titel und Steinauswahl -->
+    <header class="w-full max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+        <div class="text-center sm:text-left">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-xs font-semibold mb-1.5 shadow-sm">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Ein Geocache von den 4Lanfis</span>
+                <span class="text-emerald-500/70">•</span>
+                <span class="font-mono-code text-[11px] text-emerald-200">GC-DOMINO</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-white">Dominoeffect</h1>
+            <p class="text-slate-400 text-xs sm:text-sm mt-0.5">Bewege die Maus über die einzelnen schwarzen Punkte oder tippe sie an, um die Wegpunkt-Koordinaten in verschiedenen Formaten anzuzeigen.</p>
+        </div>
+
+        <!-- Umschalter für verschiedene Dominosteine -->
+        <div class="flex items-center gap-1.5 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-700/60 shadow-lg" role="group" aria-label="Dominoeffect Steinauswahl">
+            <button onclick="setDomino(6, 6)" id="btn-6-6" class="tile-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all bg-emerald-500 text-slate-950 shadow-md">
+                6 – 6
+            </button>
+            <button onclick="setDomino(5, 4)" id="btn-5-4" class="tile-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all text-slate-300 hover:text-white hover:bg-slate-800">
+                5 – 4
+            </button>
+            <button onclick="setDomino(3, 2)" id="btn-3-2" class="tile-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all text-slate-300 hover:text-white hover:bg-slate-800">
+                3 – 2
+            </button>
+            <button onclick="setDomino(6, 1)" id="btn-6-1" class="tile-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all text-slate-300 hover:text-white hover:bg-slate-800">
+                6 – 1
+            </button>
+        </div>
+    </header>
+
+    <!-- Hauptbereich: Dominostein & Koordinaten-Panel nebeneinander/untereinander -->
+    <main class="w-full max-w-5xl flex-1 flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-14 my-auto py-2">
+
+        <!-- Linker Bereich: Der Dominostein mit visuellem Koordinaten-Overlay -->
+        <div class="relative flex flex-col items-center justify-center">
+            <!-- Dekorative Achsenbeschriftung um den Stein -->
+            <div class="flex justify-between w-full px-2 mb-2 text-[11px] font-mono-code text-slate-400/80">
+                <span>DOMINOEFFECT</span>
+                <span class="text-emerald-400/80">NORD ↑</span>
+                <span>4LANFIS</span>
+            </div>
+
+            <div class="relative flex items-center">
+                <!-- Dominostein Container -->
+                <div id="domino-tile" class="domino-tile relative w-52 sm:w-60 md:w-64 aspect-[1/2] rounded-[28px] sm:rounded-[34px] p-5 sm:p-6 flex flex-col justify-between" aria-label="Dominoeffect Spielstein">
+                    <svg id="overlay-svg" class="absolute inset-0 w-full h-full pointer-events-none z-10 rounded-[28px] sm:rounded-[34px] overflow-hidden opacity-0 transition-opacity duration-200">
+                        <!-- Mittelachsen des Steins -->
+                        <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(14, 165, 233, 0.2)" stroke-width="1" stroke-dasharray="3 3" />
+                        <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(14, 165, 233, 0.2)" stroke-width="1" stroke-dasharray="3 3" />
+                        
+                        <!-- Fadenkreuz auf aktiven Pip -->
+                        <line id="cross-h" x1="0" y1="0" x2="100%" y2="0" stroke="rgba(2, 132, 199, 0.45)" stroke-width="1" stroke-dasharray="4 3" />
+                        <line id="cross-v" x1="0" y1="0" x2="0" y2="100%" stroke="rgba(2, 132, 199, 0.45)" stroke-width="1" stroke-dasharray="4 3" />
+                        
+                        <!-- Polar-Vektor vom Mittelpunkt zum Pip -->
+                        <line id="polar-vector" x1="50%" y1="50%" x2="50%" y2="50%" stroke="#0284c7" stroke-width="2" />
+                        <circle id="center-dot" cx="50%" cy="50%" r="3" fill="#0284c7" />
+                    </svg>
+
+                    <!-- Obere Hälfte (3x3 Grid) -->
+                    <div id="top-half" class="w-full h-[44%] grid grid-cols-3 grid-rows-3 place-items-center gap-1 sm:gap-2">
+                        <!-- Pips werden per JS gerendert -->
+                    </div>
+
+                    <!-- Mitteltrennung & Messingpin -->
+                    <div class="relative w-full h-1.5 flex items-center justify-center my-1">
+                        <div class="domino-divider w-full h-[3px] rounded-full"></div>
+                        <div class="domino-spinner absolute w-4 h-4 sm:w-5 sm:h-5 rounded-full z-20" title="Dominoeffect Referenzzentrum (0, 0)"></div>
+                    </div>
+
+                    <!-- Untere Hälfte (3x3 Grid) -->
+                    <div id="bottom-half" class="w-full h-[44%] grid grid-cols-3 grid-rows-3 place-items-center gap-1 sm:gap-2">
+                        <!-- Pips werden per JS gerendert -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-between w-full px-2 mt-2 text-[11px] font-mono-code text-slate-400/80">
+                <span>(-1.0, -1.0)</span>
+                <span class="text-emerald-400/70">GC-Wegpunkt-Matrix</span>
+                <span>(+1.0, -1.0)</span>
+            </div>
+        </div>
+
+        <!-- Rechter Bereich: Echtzeit Koordinaten-Panel -->
+        <div class="w-full max-w-md glass-panel rounded-3xl p-5 sm:p-6 transition-all duration-300">
+            <!-- Header des Panels -->
+            <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-700/60">
+                <div class="flex items-center gap-3">
+                    <div id="status-indicator" class="w-10 h-10 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-sky-400 font-bold text-lg shadow-inner">
+                        #
+                    </div>
+                    <div>
+                        <h2 id="pip-title" class="text-base sm:text-lg font-bold text-white">Dominoeffect Peilung</h2>
+                        <p id="pip-subtitle" class="text-xs text-slate-400">Fahre über einen schwarzen Punkt</p>
+                    </div>
+                </div>
+
+                <!-- Kopieren Button -->
+                <button id="copy-btn" onclick="copyCoordinates()" disabled class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700/80 transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-sky-500 hover:text-slate-950 hover:border-sky-400 active:scale-95">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                    </svg>
+                    <span id="copy-text">Kopieren</span>
+                </button>
+            </div>
+
+            <!-- Koordinaten-Liste -->
+            <div class="space-y-3">
+                <!-- 1. Geocaching DDM Format (WGS84 Grad Dezimalminuten) -->
+                <div class="p-3.5 rounded-2xl bg-slate-900/70 border border-emerald-500/25 hover:border-emerald-400/50 transition-colors">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-[11px] font-semibold uppercase tracking-wider text-emerald-400">1. Geocaching (WGS84 / DDM)</span>
+                        <span class="text-[10px] font-mono-code text-emerald-300 bg-emerald-950/80 border border-emerald-500/20 px-2 py-0.5 rounded-md">N / E</span>
+                    </div>
+                    <div id="coord-ddm" class="font-mono-code text-sm sm:text-base font-semibold text-white">—</div>
+                    <div id="coord-logical" class="text-xs text-slate-400 mt-0.5">Wegpunkt: —</div>
+                </div>
+
+                <!-- 2. Dezimalgrad & Grad-Minuten-Sekunden (DMS) -->
+                <div class="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800/90 hover:border-slate-700 transition-colors">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-[11px] font-semibold uppercase tracking-wider text-sky-400">2. Dezimalgrad (DD) & DMS</span>
+                        <span class="text-[10px] font-mono-code text-slate-500 bg-slate-800/80 px-2 py-0.5 rounded-md">GPS</span>
+                    </div>
+                    <div id="coord-dd" class="font-mono-code text-xs sm:text-sm font-semibold text-slate-100">—</div>
+                    <div id="coord-dms" class="font-mono-code text-xs text-slate-400 mt-0.5">—</div>
+                </div>
+
+                <!-- 3. UTM & Open Location Code (Plus Code) -->
+                <div class="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800/90 hover:border-slate-700 transition-colors">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-[11px] font-semibold uppercase tracking-wider text-purple-400">3. UTM-Gitter & Plus Code</span>
+                        <span class="text-[10px] font-mono-code text-slate-500 bg-slate-800/80 px-2 py-0.5 rounded-md">WGS84 / OLC</span>
+                    </div>
+                    <div id="coord-utm" class="font-mono-code text-xs sm:text-sm font-semibold text-slate-100">—</div>
+                    <div id="coord-plus" class="font-mono-code text-xs text-slate-400 mt-0.5">Plus Code: —</div>
+                </div>
+
+                <!-- 4. Relative Domino-Koordinaten (Normiert & Polar) -->
+                <div class="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800/90 hover:border-slate-700 transition-colors">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-[11px] font-semibold uppercase tracking-wider text-amber-400">4. Stein-Matrix & Polarkoordinaten</span>
+                        <span class="text-[10px] font-mono-code text-slate-500 bg-slate-800/80 px-2 py-0.5 rounded-md">[-1…+1] / r, θ</span>
+                    </div>
+                    <div id="coord-ndc" class="font-mono-code text-xs sm:text-sm font-semibold text-slate-100">—</div>
+                    <div id="coord-polar" class="font-mono-code text-xs text-slate-400 mt-0.5">—</div>
+                </div>
+
+                <!-- 5. Bildschirm- & Pixelkoordinaten -->
+                <div class="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800/90 hover:border-slate-700 transition-colors">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-[11px] font-semibold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
+                            5. Stein-Pixel & Viewport
+                            <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping"></span>
+                        </span>
+                        <span class="text-[10px] font-mono-code text-slate-500 bg-slate-800/80 px-2 py-0.5 rounded-md">px / %</span>
+                    </div>
+                    <div id="coord-rel-px" class="font-mono-code text-xs sm:text-sm font-semibold text-slate-100">—</div>
+                    <div id="coord-viewport" class="font-mono-code text-xs text-slate-400 mt-0.5">—</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Fußzeile mit Geocache-Hinweis -->
+    <footer class="w-full max-w-5xl mt-6 pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
+        <div class="flex items-center gap-2 font-medium text-slate-300">
+            <span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 font-semibold">Dominoeffect</span>
+            <span>• Ein Geocache von den <strong class="text-white">4Lanfis</strong></span>
+        </div>
+        <div class="font-mono-code text-[11px] text-slate-500">
+            Viel Erfolg bei der Suche & Happy Hunting!
+        </div>
+    </footer>
+
+    <!-- Dezenter Toast-Hinweis beim Kopieren -->
+    <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-emerald-500 text-slate-950 font-semibold text-xs sm:text-sm px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 opacity-0 pointer-events-none transition-all duration-300 translate-y-4 z-50">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <span>Dominoeffect-Koordinaten kopiert!</span>
+    </div>
+
+    <script>
+        // Standard-Augenmuster für ein 3x3 Raster (Indizes 0 bis 8)
+        // 0: Oben-Links,  1: Oben-Mitte,  2: Oben-Rechts
+        // 3: Mitte-Links, 4: Zentrum,     5: Mitte-Rechts
+        // 6: Unten-Links, 7: Unten-Mitte, 8: Unten-Rechts
+        const PIP_PATTERNS = {
+            0: [],
+            1: [4],
+            2: [2, 6],
+            3: [2, 4, 6],
+            4: [0, 2, 6, 8],
+            5: [0, 2, 4, 6, 8],
+            6: [0, 2, 3, 5, 6, 8]
+        };
+
+        // Deutsche Bezeichnungen für die 9 Rasterpositionen
+        const POSITION_NAMES = {
+            0: { label: "Oben-Links", row: 1, col: 1 },
+            1: { label: "Oben-Mitte", row: 1, col: 2 },
+            2: { label: "Oben-Rechts", row: 1, col: 3 },
+            3: { label: "Mitte-Links", row: 2, col: 1 },
+            4: { label: "Zentrum", row: 2, col: 2 },
+            5: { label: "Mitte-Rechts", row: 2, col: 3 },
+            6: { label: "Unten-Links", row: 3, col: 1 },
+            7: { label: "Unten-Mitte", row: 3, col: 2 },
+            8: { label: "Unten-Rechts", row: 3, col: 3 }
+        };
+
+        let currentTop = 6;
+        let currentBottom = 6;
+        let activePipElement = null;
+        let activePipMeta = null;
+        let lastFormattedSummary = "";
+        let lastMousePos = { x: null, y: null };
+
+        // Referenz-Ursprung (Mittelpunkt des Dominoeffect-Steins) für WGS84-Berechnungen
+        const BASE_LAT = 52.016667; // N 52° 01.000'
+        const BASE_LON = 7.600000;  // E 007° 36.000'
+
+        // Hilfsfunktionen zur Formatierung geografischer Koordinaten
+        function formatDDM(deg, isLat) {
+            const dir = isLat ? (deg >= 0 ? "N" : "S") : (deg >= 0 ? "E" : "W");
+            const abs = Math.abs(deg);
+            const d = Math.floor(abs);
+            const m = (abs - d) * 60;
+            const dPad = isLat ? String(d).padStart(2, "0") : String(d).padStart(3, "0");
+            const mStr = m.toFixed(3).padStart(6, "0");
+            return `${dir} ${dPad}° ${mStr}'`;
+        }
+
+        function formatDMS(deg, isLat) {
+            const dir = isLat ? (deg >= 0 ? "N" : "S") : (deg >= 0 ? "E" : "W");
+            const abs = Math.abs(deg);
+            const d = Math.floor(abs);
+            const minFloat = (abs - d) * 60;
+            const m = Math.floor(minFloat);
+            const s = ((minFloat - m) * 60).toFixed(2).padStart(5, "0");
+            const dPad = isLat ? String(d).padStart(2, "0") : String(d).padStart(3, "0");
+            return `${dir} ${dPad}° ${String(m).padStart(2, "0")}' ${s}"`;
+        }
+
+        function toUTM(lat, lon) {
+            const zone = Math.floor((lon + 180) / 6) + 1;
+            const a = 6378137.0;
+            const f = 1 / 298.257223563;
+            const k0 = 0.9996;
+            const e2 = f * (2 - f);
+            const ep2 = e2 / (1 - e2);
+
+            const latRad = lat * Math.PI / 180;
+            const lonRad = lon * Math.PI / 180;
+            const lon0 = ((zone - 1) * 6 - 180 + 3) * Math.PI / 180;
+
+            const N = a / Math.sqrt(1 - e2 * Math.sin(latRad) ** 2);
+            const T = Math.tan(latRad) ** 2;
+            const C = ep2 * Math.cos(latRad) ** 2;
+            const A = Math.cos(latRad) * (lonRad - lon0);
+
+            const M = a * (
+                (1 - e2 / 4 - 3 * e2 ** 2 / 64 - 5 * e2 ** 3 / 256) * latRad -
+                (3 * e2 / 8 + 3 * e2 ** 2 / 32 + 45 * e2 ** 3 / 1024) * Math.sin(2 * latRad) +
+                (15 * e2 ** 2 / 256 + 45 * e2 ** 3 / 1024) * Math.sin(4 * latRad) -
+                (35 * e2 ** 3 / 3072) * Math.sin(6 * latRad)
+            );
+
+            const easting = k0 * N * (
+                A + (1 - T + C) * A ** 3 / 6 +
+                (5 - 18 * T + T ** 2 + 72 * C - 58 * ep2) * A ** 5 / 120
+            ) + 500000.0;
+
+            let northing = k0 * (
+                M + N * Math.tan(latRad) * (
+                    A ** 2 / 2 + (5 - T + 9 * C + 4 * C ** 2) * A ** 4 / 24 +
+                    (61 - 58 * T + T ** 2 + 600 * C - 330 * ep2) * A ** 6 / 720
+                )
+            );
+            if (lat < 0) northing += 10000000.0;
+
+            return `${zone}U E ${Math.round(easting)} N ${Math.round(northing)}`;
+        }
+
+        function toPlusCode(lat, lon) {
+            const alphabet = "23456789CFGHJMPQRVWX";
+            let adjLat = Math.min(Math.max(lat + 90, 0), 180);
+            let adjLon = Math.min(Math.max(lon + 180, 0), 360);
+            const resolutions = [20, 1, 0.05, 0.0025, 0.000125];
+            let code = "";
+            for (let i = 0; i < resolutions.length; i++) {
+                if (i === 4) code += "+";
+                const res = resolutions[i];
+                const latIdx = Math.floor(adjLat / res);
+                const lonIdx = Math.floor(adjLon / res);
+                adjLat -= latIdx * res;
+                adjLon -= lonIdx * res;
+                code += alphabet[latIdx % 20] + alphabet[lonIdx % 20];
+            }
+            return code;
+        }
+
+        // Rendert eine Hälfte des Dominosteins (9 Zellen, aktive Zellen erhalten einen Pip)
+        function renderHalf(containerId, value, halfName, halfKey) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = "";
+            const activeIndices = PIP_PATTERNS[value] || [];
+
+            for (let i = 0; i < 9; i++) {
+                const cell = document.createElement("div");
+                cell.className = "w-full h-full flex items-center justify-center";
+
+                if (activeIndices.includes(i)) {
+                    const pip = document.createElement("button");
+                    pip.type = "button";
+                    pip.className = "domino-pip w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full focus:outline-none";
+                    pip.setAttribute("aria-label", `${halfName}, ${POSITION_NAMES[i].label}`);
+
+                    const meta = {
+                        halfName,
+                        halfKey,
+                        cellIndex: i,
+                        posInfo: POSITION_NAMES[i],
+                        value
+                    };
+
+                    // Hover & Klick/Touch-Events
+                    pip.addEventListener("mouseenter", () => selectPip(pip, meta));
+                    pip.addEventListener("click", (e) => {
+                        e.stopPropagation();
+                        selectPip(pip, meta);
+                    });
+                    pip.addEventListener("touchstart", (e) => {
+                        e.preventDefault();
+                        selectPip(pip, meta);
+                    }, { passive: false });
+
+                    cell.appendChild(pip);
+                }
+
+                container.appendChild(cell);
+            }
+        }
+
+        // Setzt einen neuen Dominostein (z.B. 6-6, 5-4)
+        function setDomino(topVal, bottomVal) {
+            currentTop = topVal;
+            currentBottom = bottomVal;
+
+            // Button-Styling aktualisieren
+            document.querySelectorAll(".tile-btn").forEach(btn => {
+                btn.className = "tile-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all text-slate-300 hover:text-white hover:bg-slate-800";
+            });
+            const activeBtn = document.getElementById(`btn-${topVal}-${bottomVal}`);
+            if (activeBtn) {
+                activeBtn.className = "tile-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all bg-emerald-500 text-slate-950 shadow-md";
+            }
+
+            renderHalf("top-half", topVal, "Obere Hälfte", "top");
+            renderHalf("bottom-half", bottomVal, "Untere Hälfte", "bottom");
+
+            // Nach dem Rendern automatisch den ersten Punkt der oberen Hälfte auswählen, damit sofort Daten sichtbar sind
+            const firstPip = document.querySelector("#top-half .domino-pip") || document.querySelector("#bottom-half .domino-pip");
+            if (firstPip) {
+                firstPip.click();
+            }
+        }
+
+        // Aktiviert einen Punkt und berechnet alle Koordinatenformate
+        function selectPip(pipEl, meta) {
+            if (activePipElement) {
+                activePipElement.classList.remove("active");
+            }
+            activePipElement = pipEl;
+            activePipMeta = meta;
+            pipEl.classList.add("active");
+
+            updateCoordinates();
+        }
+
+        // Berechnet und aktualisiert alle Koordinaten live
+        function updateCoordinates() {
+            if (!activePipElement || !activePipMeta) return;
+
+            const tileEl = document.getElementById("domino-tile");
+            const tileRect = tileEl.getBoundingClientRect();
+            const pipRect = activePipElement.getBoundingClientRect();
+
+            // Mittelpunkt des Pips im Viewport (Browserfenster)
+            const pipCenterX = pipRect.left + pipRect.width / 2;
+            const pipCenterY = pipRect.top + pipRect.height / 2;
+
+            // Mittelpunkt des gesamten Dominosteins im Viewport
+            const tileCenterX = tileRect.left + tileRect.width / 2;
+            const tileCenterY = tileRect.top + tileRect.height / 2;
+
+            // Relative Pixel-Koordinaten innerhalb des Dominosteins (Oben-Links = 0,0)
+            const relX = pipCenterX - tileRect.left;
+            const relY = pipCenterY - tileRect.top;
+
+            // Relative Prozent-Koordinaten (0% bis 100%)
+            const pctX = (relX / tileRect.width) * 100;
+            const pctY = (relY / tileRect.height) * 100;
+
+            // Normierte Koordinaten (-1.0 bis +1.0, WebGL/NDC Standard: Y zeigt nach oben)
+            const ndcX = ((relX / tileRect.width) * 2) - 1;
+            const ndcY = -(((relY / tileRect.height) * 2) - 1);
+
+            // Polarkoordinaten vom exakten Mittelpunkt des Dominosteins aus
+            const dx = pipCenterX - tileCenterX;
+            const dy = pipCenterY - tileCenterY; // Bildschirm-Y (unten positiv)
+            const mathDy = -dy; // Mathematisches Y (oben positiv) für Standardwinkel
+            const radiusPx = Math.hypot(dx, dy);
+            let angleRad = Math.atan2(mathDy, dx);
+            let angleDeg = angleRad * (180 / Math.PI);
+            if (angleDeg < 0) angleDeg += 360; // 0° bis 360° gegen den Uhrzeigersinn (0° = Rechts)
+
+            // Geografische WGS84-Koordinaten abgeleitet aus der normierten Position auf dem Stein
+            const lat = BASE_LAT + (ndcY * 0.015);
+            const lon = BASE_LON + (ndcX * 0.025);
+            const ddmStr = `${formatDDM(lat, true)}  ${formatDDM(lon, false)}`;
+            const ddStr = `${lat.toFixed(6)}°, ${lon.toFixed(6)}°`;
+            const dmsStr = `${formatDMS(lat, true)}  ${formatDMS(lon, false)}`;
+            const utmStr = toUTM(lat, lon);
+            const plusCodeStr = toPlusCode(lat, lon);
+
+            // UI-Elemente befüllen
+            const pipNumber = Array.from(document.querySelectorAll(".domino-pip")).indexOf(activePipElement) + 1;
+            document.getElementById("status-indicator").textContent = `#${pipNumber}`;
+            document.getElementById("pip-title").textContent = `${activePipMeta.halfName} · ${activePipMeta.posInfo.label}`;
+            document.getElementById("pip-subtitle").textContent = `Dominoeffect [${currentTop} | ${currentBottom}] · Punkt ${pipNumber}`;
+
+            // 1. Geocaching DDM & Logische Position
+            document.getElementById("coord-ddm").textContent = ddmStr;
+            document.getElementById("coord-logical").textContent = `Wegpunkt: ${activePipMeta.halfKey.toUpperCase()}-Z${activePipMeta.posInfo.row}S${activePipMeta.posInfo.col} (${activePipMeta.halfName}, ${activePipMeta.posInfo.label})`;
+
+            // 2. Dezimalgrad & DMS
+            document.getElementById("coord-dd").textContent = ddStr;
+            document.getElementById("coord-dms").textContent = dmsStr;
+
+            // 3. UTM & Plus Code
+            document.getElementById("coord-utm").textContent = utmStr;
+            document.getElementById("coord-plus").textContent = `Plus Code: ${plusCodeStr}`;
+
+            // 4. Normiert (WebGL / NDC) & Polarkoordinaten
+            const signX = ndcX >= 0 ? "+" : "";
+            const signY = ndcY >= 0 ? "+" : "";
+            document.getElementById("coord-ndc").textContent = `Normiert: (${signX}${ndcX.toFixed(3)}, ${signY}${ndcY.toFixed(3)})`;
+            document.getElementById("coord-polar").textContent = `Polar: r = ${radiusPx.toFixed(1)} px | θ = ${angleDeg.toFixed(1)}° (${angleRad.toFixed(2)} rad)`;
+
+            // 5. Pixel & Viewport-Koordinaten
+            document.getElementById("coord-rel-px").textContent = `Stein: ${Math.round(relX)} px, ${Math.round(relY)} px (${pctX.toFixed(1)}%, ${pctY.toFixed(1)}%)`;
+            const cursorInfo = lastMousePos.x !== null ? ` | Maus: ${Math.round(lastMousePos.x)}, ${Math.round(lastMousePos.y)}` : "";
+            document.getElementById("coord-viewport").textContent = `Viewport: X ${Math.round(pipCenterX)} px, Y ${Math.round(pipCenterY)} px${cursorInfo}`;
+
+            // SVG Overlay (Fadenkreuz & Polar-Vektor) aktualisieren
+            const svg = document.getElementById("overlay-svg");
+            svg.classList.remove("opacity-0");
+            document.getElementById("cross-h").setAttribute("y1", `${pctY}%`);
+            document.getElementById("cross-h").setAttribute("y2", `${pctY}%`);
+            document.getElementById("cross-v").setAttribute("x1", `${pctX}%`);
+            document.getElementById("cross-v").setAttribute("x2", `${pctX}%`);
+            document.getElementById("polar-vector").setAttribute("x2", `${pctX}%`);
+            document.getElementById("polar-vector").setAttribute("y2", `${pctY}%`);
+
+            // Kopier-Button aktivieren
+            document.getElementById("copy-btn").disabled = false;
+
+            // Formatierter Text für die Zwischenablage vorbereiten
+            lastFormattedSummary = [
+                `Dominoeffect – Ein Geocache von den 4Lanfis`,
+                `Stein [${currentTop}|${currentBottom}] · Punkt #${pipNumber} (${activePipMeta.halfName}, ${activePipMeta.posInfo.label})`,
+                `• Geocaching (DDM): ${ddmStr}`,
+                `• Dezimalgrad (DD): ${ddStr}`,
+                `• Grad/Min/Sek (DMS): ${dmsStr}`,
+                `• UTM-Gitter: ${utmStr}`,
+                `• Plus Code: ${plusCodeStr}`,
+                `• Stein-Matrix: (${signX}${ndcX.toFixed(3)}, ${signY}${ndcY.toFixed(3)}) | r = ${radiusPx.toFixed(1)}px, θ = ${angleDeg.toFixed(1)}°`,
+                `• Lokal / Viewport: ${Math.round(relX)}px, ${Math.round(relY)}px | X: ${Math.round(pipCenterX)}px, Y: ${Math.round(pipCenterY)}px`
+            ].join("\n");
+        }
+
+        // Kopiert die aktuellen Koordinaten sicher in die Zwischenablage
+        function copyCoordinates() {
+            if (!lastFormattedSummary) return;
+
+            const textarea = document.createElement("textarea");
+            textarea.value = lastFormattedSummary;
+            textarea.style.position = "fixed";
+            textarea.style.opacity = "0";
+            document.body.appendChild(textarea);
+            textarea.select();
+
+            try {
+                document.execCommand("copy");
+                showToast();
+            } catch (err) {
+                console.error("Kopieren fehlgeschlagen:", err);
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
+
+        // Zeigt eine kurze Bestätigung beim Kopieren an
+        function showToast() {
+            const toast = document.getElementById("toast");
+            toast.classList.remove("opacity-0", "translate-y-4");
+            toast.classList.add("opacity-100", "translate-y-0");
+
+            clearTimeout(window.toastTimer);
+            window.toastTimer = setTimeout(() => {
+                toast.classList.add("opacity-0", "translate-y-4");
+                toast.classList.remove("opacity-100", "translate-y-0");
+            }, 2200);
+        }
+
+        // Live-Tracking von Mausbewegungen, Fenstergrößenänderungen und Scrollen
+        window.addEventListener("mousemove", (e) => {
+            lastMousePos = { x: e.clientX, y: e.clientY };
+            if (activePipElement) {
+                updateCoordinates();
+            }
+        });
+
+        window.addEventListener("resize", updateCoordinates);
+        window.addEventListener("scroll", updateCoordinates, true);
+
+        // Initialisierung beim Laden der Seite mit dem 6-6er Pasch
+        window.addEventListener("DOMContentLoaded", () => {
+            setDomino(6, 6);
+        });
+    </script>
+</body>
+</html>
